@@ -7,14 +7,13 @@
 class MidiClient
 {
 public:
+
+	// Delegate class used for handling incoming MIDI messages.
 	class MessageDelegate
 	{
 	public:
-		virtual void ProcessIncommingMidiMessageFromDevice(MidiMessage message) = 0;
+		virtual void ProcessIncomingMidiMessageFromDevice(MidiMessage message) = 0;
 	};
-
-	MessageDelegate *messageDelegate;
-	std::vector<HMIDIIN> handles;
 
 	MidiClient(MessageDelegate *md)
 		: messageDelegate(md)
@@ -23,49 +22,72 @@ public:
 
 	void OpenAllDevices()
 	{
-		int deviceCount = midiInGetNumDevs();
-		for (int i = 0; i < deviceCount; i++) {
-			HMIDIIN handle;
+		auto inDeviceCount = midiInGetNumDevs();
+		auto outDeviceCount = midiOutGetNumDevs();
+		printf("There are %d input and %d output devices.\n", inDeviceCount, outDeviceCount);
 
-			MMRESULT result = midiInOpen(&handle, i, reinterpret_cast<DWORD_PTR>(MidiInProc), reinterpret_cast<DWORD_PTR>(messageDelegate), CALLBACK_FUNCTION);
-			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to open a connection to a MIDI device.");
+		// Open the all input devices.
+		for (auto i = 0U; i < inDeviceCount; i++)
+		{
+			HMIDIIN handle;
+			auto result = midiInOpen(&handle, i, reinterpret_cast<DWORD_PTR>(MidiInProc), reinterpret_cast<DWORD_PTR>(messageDelegate), CALLBACK_FUNCTION);
+			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to open a MIDI input device.");
+
+			MIDIINCAPS caps;
+			result = midiInGetDevCaps(i, &caps, sizeof(caps));
+			Debug::Assert(result == MMSYSERR_NOERROR, "Can't retrieve the device caps.");
+			wprintf(L"IN(%d): %s\n", i, caps.szPname);
 
 			result = midiInStart(handle);
 			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to start input from a MIDI device.");
 
-			handles.push_back(handle);
+			inDeviceHandles.push_back(handle);
+		}
 
-			wprintf(L"MIDI device found: %s\n", GetDeviceName(handle).c_str());
+		// Open the all output devices.
+		for (auto i = 0U; i < outDeviceCount; i++)
+		{
+			HMIDIOUT handle;
+			auto result = midiOutOpen(&handle, i, NULL, NULL, CALLBACK_NULL);
+			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to open a MIDI output device.");
+
+			MIDIOUTCAPS caps;
+			result = midiOutGetDevCaps(i, &caps, sizeof(caps));
+			Debug::Assert(result == MMSYSERR_NOERROR, "Can't retrieve the device caps.");
+			wprintf(L"OUT(%d): %s\n", i, caps.szPname);
+
+			outDeviceHandles.push_back(handle);
 		}
 	}
 
 	void CloseAllDevices()
 	{
-		for (auto& handle : handles)
+		for (auto& handle : inDeviceHandles)
 		{
 			midiInClose(handle);
 		}
+		inDeviceHandles.clear();
+
+		for (auto& handle : outDeviceHandles)
+		{
+			midiOutClose(handle);
+		}
+		outDeviceHandles.clear();
 	}
 
-	std::wstring GetDeviceName(HMIDIIN handle)
-	{
-		UINT id;
-		MMRESULT result = midiInGetID(handle, &id);
-		Debug::Assert(result == MMSYSERR_NOERROR, "Can't get the device ID.");
+private:
 
-		MIDIINCAPS caps;
-		result = midiInGetDevCaps(id, &caps, sizeof(caps));
-		Debug::Assert(result == MMSYSERR_NOERROR, "Can't retrieve the device caps.");
-
-		return std::wstring(caps.szPname);
-	}
+	MessageDelegate *messageDelegate;
+	std::vector<HMIDIIN> inDeviceHandles;
+	std::vector<HMIDIOUT> outDeviceHandles;
 
 	// MIDI callback function.
 	static void CALLBACK MidiInProc(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 	{
-		if (wMsg == MIM_DATA) {
-			MessageDelegate* md = reinterpret_cast<MessageDelegate*>(dwInstance);
-			md->ProcessIncommingMidiMessageFromDevice(MidiMessage(dwParam1));
+		if (wMsg == MIM_DATA)
+		{
+			auto md = reinterpret_cast<MessageDelegate*>(dwInstance);
+			md->ProcessIncomingMidiMessageFromDevice(MidiMessage(dwParam1));
 		}
 	}
 };

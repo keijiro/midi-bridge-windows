@@ -36,7 +36,7 @@ public:
 		midiClient.CloseAllDevices();
 	}
 
-	void ProcessIncommingMidiMessageFromDevice(MidiMessage message) override
+	void ProcessIncomingMidiMessageFromDevice(MidiMessage message) override
 	{
 		printf("MIDI: %x %x %x\n", message.bytes[0], message.bytes[1], message.bytes[2]);
 	}
