@@ -3,7 +3,7 @@
 #include "stdafx.h"
 #include "Debug.h"
 
-class Server
+class IpcServer
 {
 public:
 #ifdef WIN32
@@ -21,14 +21,14 @@ public:
 	HANDLE inputThreadHandle;
 	bool quitInputThread;
 
-	Server()
+	IpcServer()
 	{
 		listenSocket = SOCKET_ERROR;
 		clientSocket = SOCKET_ERROR;
 		inputThreadHandle = NULL;
 	}
 
-	~Server()
+	~IpcServer()
 	{
 		if (inputThreadHandle != NULL)
 		{
@@ -134,7 +134,7 @@ public:
 
 	static DWORD WINAPI InputThreadEntryFunction(LPVOID lpParam)
 	{
-		Server* server = reinterpret_cast<Server*>(lpParam);
+		IpcServer* server = reinterpret_cast<IpcServer*>(lpParam);
 		server->RunInputLoop();
 		return 0;
 	}
