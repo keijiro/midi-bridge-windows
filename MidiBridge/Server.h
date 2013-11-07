@@ -18,16 +18,35 @@ public:
 	socket_t listenSocket;
 	socket_t clientSocket;
 
+	HANDLE inputThreadHandle;
+	bool quitInputThread;
+
 	Server()
 	{
 		listenSocket = SOCKET_ERROR;
 		clientSocket = SOCKET_ERROR;
+		inputThreadHandle = NULL;
 	}
 
-	void Close()
+	~Server()
 	{
+		if (inputThreadHandle != NULL)
+		{
+			quitInputThread = true;
+			WaitForSingleObject(inputThreadHandle, INFINITE);
+		}
 		if (clientSocket != SOCKET_ERROR) closesocket(clientSocket);
 		if (listenSocket != SOCKET_ERROR) closesocket(listenSocket);
+	}
+
+	void CloseConnection()
+	{
+		if (inputThreadHandle != NULL)
+		{
+			quitInputThread = true;
+			WaitForSingleObject(inputThreadHandle, INFINITE);
+		}
+		if (clientSocket != SOCKET_ERROR) closesocket(clientSocket);
 	}
 
 	void SetUp()
@@ -88,12 +107,12 @@ public:
 
 	void RunInputLoop()
 	{
-		while (true)
+		while (!quitInputThread)
 		{
 			static uint8_t buffer[4] = { 0xb0, 30, 100, 0xff };
 			int result = send(clientSocket, (char*)buffer, sizeof(buffer), 0);
 
-			if (result < 0) {
+			if (result < sizeof(buffer)) {
 				puts("InputThread: the connection seems to be lost. Stop sending.");
 				break;
 			}
@@ -108,9 +127,9 @@ public:
 #ifdef WIN32
 	void StartInputThread()
 	{
-		DWORD threadID;
-		CreateThread(NULL, 0, InputThreadEntryFunction, this, 0, &threadID);
-		Debug::Assert(threadID != NULL, "Failed to create a thread.");
+		quitInputThread = false;
+		inputThreadHandle = CreateThread(NULL, 0, InputThreadEntryFunction, this, 0, NULL);
+		Debug::Assert(inputThreadHandle != NULL, "Failed to create a thread.");
 	}
 
 	static DWORD WINAPI InputThreadEntryFunction(LPVOID lpParam)

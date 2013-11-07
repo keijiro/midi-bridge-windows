@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "Debug.h"
 #include "Platform.h"
 #include "Server.h"
 
@@ -11,20 +10,18 @@ int _tmain(int argc, _TCHAR* argv[])
 		Server server;
 		server.SetUp();
 
-		puts("Wait for a connection.");
-		server.WaitAndAccept();
-		puts("Accepted.");
+		while (true) {
+			puts("Wait for a connection.");
+			server.WaitAndAccept();
+			puts("Accepted.");
 
-		server.StartInputThread();
-		server.RunOutputLoop();
+			server.StartInputThread();
+			server.RunOutputLoop();
 
-		server.Close();
+			server.CloseConnection();
+		}
 	}
 
 	Platform::Finalize();
-
-	puts("Done.");
-	getchar();
-
 	return 0;
 }
