@@ -30,6 +30,12 @@
     <ClInclude Include="Server.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MidiMessage.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MidiClient.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

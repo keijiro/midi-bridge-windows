@@ -11,3 +11,6 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdarg>
+#include <vector>
+#include <string>
+
