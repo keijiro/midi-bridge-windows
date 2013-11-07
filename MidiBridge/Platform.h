@@ -3,10 +3,13 @@
 #include "stdafx.h"
 #include "Debug.h"
 
+// Platform dependant procedures.
 class Platform
 {
 public:
+
 #ifdef WIN32
+
 	static void Initialize()
 	{
 		WSADATA wsaData;
@@ -18,7 +21,9 @@ public:
 	{
 		WSACleanup();
 	}
+
 #else
+
 	static void Initialize()
 	{
 	}
@@ -26,5 +31,6 @@ public:
 	static void Finalize()
 	{
 	}
+
 #endif
 };

@@ -15,9 +15,14 @@ public:
 		virtual void ProcessIncomingMidiMessageFromDevice(MidiMessage message) = 0;
 	};
 
-	MidiClient(MessageDelegate *md)
+	MidiClient(MessageDelegate& md)
 		: messageDelegate(md)
 	{
+	}
+
+	~MidiClient()
+	{
+		CloseAllDevices();
 	}
 
 	void OpenAllDevices()
@@ -30,7 +35,7 @@ public:
 		for (auto i = 0U; i < inDeviceCount; i++)
 		{
 			HMIDIIN handle;
-			auto result = midiInOpen(&handle, i, reinterpret_cast<DWORD_PTR>(MidiInProc), reinterpret_cast<DWORD_PTR>(messageDelegate), CALLBACK_FUNCTION);
+			auto result = midiInOpen(&handle, i, reinterpret_cast<DWORD_PTR>(MidiInProc), reinterpret_cast<DWORD_PTR>(&messageDelegate), CALLBACK_FUNCTION);
 			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to open a MIDI input device.");
 
 			MIDIINCAPS caps;
@@ -75,9 +80,19 @@ public:
 		outDeviceHandles.clear();
 	}
 
+	void SendToDefaultDevice(MidiMessage message)
+	{
+		if (outDeviceHandles.size() > 0)
+		{
+			auto handle = outDeviceHandles.back();
+			midiOutShortMsg(handle, message.GetRaw32());
+			printf("Sent: %s\n", message.ToString().c_str());
+		}
+	}
+
 private:
 
-	MessageDelegate *messageDelegate;
+	MessageDelegate& messageDelegate;
 	std::vector<HMIDIIN> inDeviceHandles;
 	std::vector<HMIDIOUT> outDeviceHandles;
 

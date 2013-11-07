@@ -1,18 +1,16 @@
 #pragma once
 
 #include "stdafx.h"
-#include "Platform.h"
 #include "IpcServer.h"
 #include "MidiClient.h"
 
 class BridgeApp
-	: public MidiClient::MessageDelegate
+	: public MidiClient::MessageDelegate, IpcServer::MessageDelegate
 {
-	IpcServer ipcServer;
-	MidiClient midiClient;
 public:
+
 	BridgeApp()
-		: midiClient(this)
+		: ipcServer(*this), midiClient(*this)
 	{
 	}
 
@@ -27,17 +25,29 @@ public:
 			ipcServer.WaitAndAccept();
 			puts("Accepted.");
 
-			ipcServer.StartInputThread();
-			ipcServer.RunOutputLoop();
+			ipcServer.StartSenderThread();
+			ipcServer.RunReceiverLoop();
 
-			ipcServer.CloseConnection();
+			ipcServer.CloseConnectionAndWait();
 		}
-
-		midiClient.CloseAllDevices();
 	}
 
+	// IPC -> MIDI out
+	int ProcessIncomingIpcMessageFromClient(const uint8_t* data, int offset, int length)
+	{
+		Debug::Assert(offset + 4 <= length, "Invalid IPC message.");
+		midiClient.SendToDefaultDevice(MidiMessage(data + offset));
+		return offset + 4;
+	}
+
+	// MIDI in -> IPC
 	void ProcessIncomingMidiMessageFromDevice(MidiMessage message) override
 	{
-		printf("MIDI: %x %x %x\n", message.bytes[0], message.bytes[1], message.bytes[2]);
+		ipcServer.SendToClient(message);
 	}
+
+private:
+
+	IpcServer ipcServer;
+	MidiClient midiClient;
 };

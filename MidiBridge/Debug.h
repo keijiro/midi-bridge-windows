@@ -2,9 +2,12 @@
 
 #include "stdafx.h"
 
+// Utility class for debugging.
 class Debug
 {
 public:
+
+	// Assert function which displays a message on a failure.
 	static void Assert(bool condition, const char* format, ...)
 	{
 		if (!condition)

@@ -1,13 +1,13 @@
 #pragma once
 
 #include "stdafx.h"
-#include "Debug.h"
 
-class MidiMessage
+// MIDI message class.
+struct MidiMessage
 {
-public:
 	uint8_t bytes[4];
 
+	// Construct from a MIDI-in dword.
 	MidiMessage(uint32_t raw32)
 	{
 		uint8_t status = raw32 & 0xff;
@@ -36,5 +36,31 @@ public:
 			bytes[2] = 0xff;
 			bytes[3] = 0xff;
 		}
+	}
+
+	// Construct from a byte array.
+	MidiMessage(const uint8_t* source)
+	{
+		bytes[0] = source[0];
+		bytes[1] = source[1];
+		bytes[2] = source[2];
+		bytes[3] = source[3];
+	}
+
+	// Returns a MIDI-out dword.
+	uint32_t GetRaw32() const
+	{
+		uint32_t temp = bytes[0];
+		if (bytes[1] < 0x80) temp += bytes[1] << 8;
+		if (bytes[2] < 0x80) temp += bytes[2] << 16;
+		return temp;
+	}
+
+	// Returns a string representation.
+	std::string ToString() const
+	{
+		char buffer[64];
+		_snprintf_s(buffer, sizeof(buffer), sizeof(buffer), "%x %x %x", bytes[0], bytes[1], bytes[2]);
+		return std::string(buffer);
 	}
 };
