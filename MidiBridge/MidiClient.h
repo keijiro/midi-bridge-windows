@@ -4,6 +4,7 @@
 #include "Debug.h"
 #include "MidiMessage.h"
 
+// MIDI interface client class.
 class MidiClient
 {
 public:
@@ -15,6 +16,7 @@ public:
 		virtual void ProcessIncomingMidiMessageFromDevice(MidiMessage message) = 0;
 	};
 
+	// Constructor/destructor.
 	MidiClient(MessageDelegate& md)
 		: messageDelegate(md)
 	{
@@ -25,46 +27,52 @@ public:
 		CloseAllDevices();
 	}
 
+	// Show the names of the all input and output devices, and try to open these devices.
 	void OpenAllDevices()
 	{
-		auto inDeviceCount = midiInGetNumDevs();
-		auto outDeviceCount = midiOutGetNumDevs();
-		printf("There are %d input and %d output devices.\n", inDeviceCount, outDeviceCount);
-
 		// Open the all input devices.
+		puts("Input devices:");
+		auto inDeviceCount = midiInGetNumDevs();
 		for (auto i = 0U; i < inDeviceCount; i++)
 		{
 			HMIDIIN handle;
 			auto result = midiInOpen(&handle, i, reinterpret_cast<DWORD_PTR>(MidiInProc), reinterpret_cast<DWORD_PTR>(&messageDelegate), CALLBACK_FUNCTION);
-			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to open a MIDI input device.");
+			bool opened = (result == MMSYSERR_NOERROR);
 
 			MIDIINCAPS caps;
 			result = midiInGetDevCaps(i, &caps, sizeof(caps));
-			Debug::Assert(result == MMSYSERR_NOERROR, "Can't retrieve the device caps.");
-			wprintf(L"IN(%d): %s\n", i, caps.szPname);
+			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
+			wprintf(L"[%d] %s %s\n", i, caps.szPname, opened ? L"" : L"(unavailable)");
 
-			result = midiInStart(handle);
-			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to start input from a MIDI device.");
-
-			inDeviceHandles.push_back(handle);
+			if (opened)
+			{
+				result = midiInStart(handle);
+				Debug::Assert(result == MMSYSERR_NOERROR, "Failed to start input from a MIDI device.");
+				inDeviceHandles.push_back(handle);
+			}
 		}
+		puts("");
 
 		// Open the all output devices.
+		puts("Output devices:");
+		auto outDeviceCount = midiOutGetNumDevs();
 		for (auto i = 0U; i < outDeviceCount; i++)
 		{
 			HMIDIOUT handle;
 			auto result = midiOutOpen(&handle, i, NULL, NULL, CALLBACK_NULL);
-			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to open a MIDI output device.");
+			bool opened = (result == MMSYSERR_NOERROR);
 
 			MIDIOUTCAPS caps;
 			result = midiOutGetDevCaps(i, &caps, sizeof(caps));
-			Debug::Assert(result == MMSYSERR_NOERROR, "Can't retrieve the device caps.");
-			wprintf(L"OUT(%d): %s\n", i, caps.szPname);
+			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
+			wprintf(L"[%d] %s %s\n", i, caps.szPname, opened ? L"" : L"(unavailable)");
 
-			outDeviceHandles.push_back(handle);
+			if (opened) outDeviceHandles.push_back(handle);
 		}
+		puts("");
 	}
 
+	// Close the all devices opened by this client.
 	void CloseAllDevices()
 	{
 		for (auto& handle : inDeviceHandles)
@@ -80,13 +88,12 @@ public:
 		outDeviceHandles.clear();
 	}
 
-	void SendToDefaultDevice(MidiMessage message)
+	// Send a MIDI message to the all output devices.
+	void SendMessageToDevices(MidiMessage message)
 	{
-		if (outDeviceHandles.size() > 0)
+		for (auto& handle : outDeviceHandles)
 		{
-			auto handle = outDeviceHandles.back();
 			midiOutShortMsg(handle, message.GetRaw32());
-			printf("Sent: %s\n", message.ToString().c_str());
 		}
 	}
 
@@ -103,6 +110,10 @@ private:
 		{
 			auto md = reinterpret_cast<MessageDelegate*>(dwInstance);
 			md->ProcessIncomingMidiMessageFromDevice(MidiMessage(dwParam1));
+		}
+		else if (wMsg == MIM_CLOSE)
+		{
+			printf("MIDI: Device (%0x) was disconnected.\n", hMidiIn);
 		}
 	}
 };
