@@ -4,8 +4,8 @@
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	Platform::Initialize();
-	BridgeApp().Run();
-	Platform::Finalize();
-	return 0;
+    Platform::Initialize();
+    BridgeApp().Run();
+    Platform::Finalize();
+    return 0;
 }

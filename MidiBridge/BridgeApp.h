@@ -6,52 +6,52 @@
 
 // Application class.
 class BridgeApp
-	: public MidiClient::MessageDelegate, IpcServer::MessageDelegate
+    : public MidiClient::MessageDelegate, IpcServer::MessageDelegate
 {
 public:
 
-	BridgeApp()
-		: ipcServer(*this), midiClient(*this)
-	{
-	}
+    BridgeApp()
+        : ipcServer(*this), midiClient(*this)
+    {
+    }
 
-	// Application main loop.
-	void Run()
-	{
-		ipcServer.SetUp();
-		midiClient.OpenAllDevices();
+    // Application main loop.
+    void Run()
+    {
+        ipcServer.SetUp();
+        midiClient.OpenAllDevices();
 
-		while (true)
-		{
-			puts("Ready to connect.");
-			ipcServer.WaitAndAccept();
+        while (true)
+        {
+            puts("Ready to connect.");
+            ipcServer.WaitAndAccept();
 
-			puts("A connection was established.");
-			ipcServer.RunReceiverLoop();
+            puts("A connection was established.");
+            ipcServer.RunReceiverLoop();
 
-			ipcServer.CloseConnection();
-		}
-	}
+            ipcServer.CloseConnection();
+        }
+    }
 
-	// IPC -> MIDI out
-	int ProcessIncomingIpcMessageFromClient(const uint8_t* data, int offset, int length)
-	{
-		Debug::Assert(offset + 4 <= length, "Invalid IPC message.");
-		MidiMessage message(data + offset);
-		midiClient.SendMessageToDevices(message);
-		printf("OUT: %s\n", message.ToString().c_str());
-		return offset + 4;
-	}
+    // IPC -> MIDI out
+    int ProcessIncomingIpcMessageFromClient(const uint8_t* data, int offset, int length)
+    {
+        Debug::Assert(offset + 4 <= length, "Invalid IPC message.");
+        MidiMessage message(data + offset);
+        midiClient.SendMessageToDevices(message);
+        printf("OUT: %s\n", message.ToString().c_str());
+        return offset + 4;
+    }
 
-	// MIDI in -> IPC
-	void ProcessIncomingMidiMessageFromDevice(MidiMessage message) override
-	{
-		printf("IN: %s\n", message.ToString().c_str());
-		ipcServer.SendToClient(message);
-	}
+    // MIDI in -> IPC
+    void ProcessIncomingMidiMessageFromDevice(MidiMessage message) override
+    {
+        printf("IN: %s\n", message.ToString().c_str());
+        ipcServer.SendToClient(message);
+    }
 
 private:
 
-	IpcServer ipcServer;
-	MidiClient midiClient;
+    IpcServer ipcServer;
+    MidiClient midiClient;
 };
