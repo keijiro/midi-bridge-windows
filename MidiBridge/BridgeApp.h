@@ -3,6 +3,7 @@
 #include "stdafx.h"
 #include "IpcServer.h"
 #include "MidiClient.h"
+#include "Logger.h"
 
 // Application class.
 class BridgeApp
@@ -18,19 +19,21 @@ public:
     // Application main loop.
     void Run()
     {
-        ipcServer.SetUp();
-        midiClient.OpenAllDevices();
+		Logger::Enable();
 
-        while (true)
-        {
-            puts("Ready to connect.");
-            ipcServer.WaitAndAccept();
+		ipcServer.SetUp();
+		ipcServer.Start();
 
-            puts("A connection was established.");
-            ipcServer.RunReceiverLoop();
+		Sleep(100);
 
-            ipcServer.CloseConnection();
-        }
+		while (true)
+		{
+			midiClient.OpenAllDevices();
+			getchar();
+			midiClient.CloseAllDevices();
+		}
+
+		ipcServer.StopAndWait();
     }
 
     // IPC -> MIDI out
@@ -39,14 +42,14 @@ public:
         Debug::Assert(offset + 4 <= length, "Invalid IPC message.");
         MidiMessage message(data + offset);
         midiClient.SendMessageToDevices(message);
-        printf("OUT: %s\n", message.ToString().c_str());
+		Logger::RecordOutput(message);
         return offset + 4;
     }
 
     // MIDI in -> IPC
     void ProcessIncomingMidiMessageFromDevice(MidiMessage message) override
     {
-        printf("IN: %s\n", message.ToString().c_str());
+		Logger::RecordInput(message);
         ipcServer.SendToClient(message);
     }
 

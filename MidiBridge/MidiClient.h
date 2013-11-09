@@ -2,6 +2,7 @@
 
 #include "stdafx.h"
 #include "Debug.h"
+#include "Logger.h"
 #include "MidiMessage.h"
 
 // MIDI interface client class.
@@ -30,8 +31,10 @@ public:
     // Show the names of the all input and output devices, and try to open these devices.
     void OpenAllDevices()
     {
-        // Open the all input devices.
-        puts("Input devices:");
+		Logger::PrintSeparator();
+	
+		// Open the all input devices.
+		Logger::RecordMisc("Input devices:");
         auto inDeviceCount = midiInGetNumDevs();
         for (auto i = 0U; i < inDeviceCount; i++)
         {
@@ -42,7 +45,7 @@ public:
             MIDIINCAPS caps;
             result = midiInGetDevCaps(i, &caps, sizeof(caps));
             Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
-            wprintf(L"[%d] %s %s\n", i, caps.szPname, opened ? L"" : L"(unavailable)");
+            Logger::RecordMisc(L"[%d] %s %s", i, caps.szPname, opened ? L"" : L"(unavailable)");
 
             if (opened)
             {
@@ -51,10 +54,11 @@ public:
                 inDeviceHandles.push_back(handle);
             }
         }
-        puts("");
+		
+		Logger::PrintSeparator();
 
         // Open the all output devices.
-        puts("Output devices:");
+		Logger::RecordMisc("Output devices:");
         auto outDeviceCount = midiOutGetNumDevs();
         for (auto i = 0U; i < outDeviceCount; i++)
         {
@@ -65,11 +69,12 @@ public:
             MIDIOUTCAPS caps;
             result = midiOutGetDevCaps(i, &caps, sizeof(caps));
             Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
-            wprintf(L"[%d] %s %s\n", i, caps.szPname, opened ? L"" : L"(unavailable)");
+			Logger::RecordMisc(L"[%d] %s %s", i, caps.szPname, opened ? L"" : L"(unavailable)");
 
             if (opened) outDeviceHandles.push_back(handle);
         }
-        puts("");
+		
+		Logger::PrintSeparator();
     }
 
     // Close the all devices opened by this client.
@@ -113,7 +118,7 @@ private:
         }
         else if (wMsg == MIM_CLOSE)
         {
-            printf("MIDI: Device (%0x) was disconnected.\n", hMidiIn);
+			Logger::RecordMisc("Device (%0x) was disconnected.", hMidiIn);
         }
     }
 };
