@@ -28,53 +28,94 @@ public:
         CloseAllDevices();
     }
 
-    // Show the names of the all input and output devices, and try to open these devices.
+	void TrySwitchState(int id)
+	{
+		int inDeviceCount = midiInGetNumDevs();
+		int outDeviceCount = midiOutGetNumDevs();
+
+		if (id <= 0 || id > inDeviceCount + outDeviceCount) {
+			// Invalid ID.
+			return;
+		}
+
+		if (id <= inDeviceCount) {
+			id = id - 1;
+			if (CheckInputDeviceOpened(id))
+			{
+				// Try to close the device.
+				CloseInputDevice(id);
+			}
+			else
+			{
+				// Try to open the device.
+				TryOpenInputDevice(id);
+			}
+		}
+		else
+		{
+			id = id - 1 - inDeviceCount;
+			if (CheckOutputDeviceOpened(id))
+			{
+				// Try to close the device.
+				CloseOutputDevice(id);
+			}
+			else
+			{
+				// Try to open the device.
+				TryOpenOutputDevice(id);
+			}
+		}
+	}
+
+	// Print the device list.
+	void PrintDeviceList()
+	{
+		// Header.
+		puts("----+--------+--------------+----------------------------------");
+		puts(" ID |  TYPE  |    STATUS    | DEVICE NAME");
+		puts("----+--------+--------------+----------------------------------");
+
+		// Input devices.
+		auto inDeviceCount = midiInGetNumDevs();
+		for (auto i = 0U; i < inDeviceCount; i++)
+		{
+			MIDIINCAPS caps;
+			auto result = midiInGetDevCaps(i, &caps, sizeof(caps));
+			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
+			bool opened = CheckInputDeviceOpened(i);
+			wprintf(L" %2d | Input  | %-12s | %-32s\n", i + 1, opened ? L"Active" : L"", caps.szPname);
+		}
+
+		puts("----+--------+--------------+----------------------------------");
+
+		// Output devices.
+		auto outDeviceCount = midiOutGetNumDevs();
+		for (auto i = 0U; i < outDeviceCount; i++)
+		{
+			MIDIOUTCAPS caps;
+			auto result = midiOutGetDevCaps(i, &caps, sizeof(caps));
+			Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
+			bool opened = CheckOutputDeviceOpened(i);
+			wprintf(L" %2d | Output | %-12s | %-32s\n", i + 1 + inDeviceCount, opened ? L"Active" : L"", caps.szPname);
+		}
+
+		puts("----+--------+--------------+----------------------------------");
+	}
+
+    // Try to open the all devices.
     void OpenAllDevices()
     {
-		Logger::PrintSeparator();
-	
-		// Open the all input devices.
-		Logger::RecordMisc("Input devices:");
         auto inDeviceCount = midiInGetNumDevs();
         for (auto i = 0U; i < inDeviceCount; i++)
         {
-            HMIDIIN handle;
-            auto result = midiInOpen(&handle, i, reinterpret_cast<DWORD_PTR>(MidiInProc), reinterpret_cast<DWORD_PTR>(&messageDelegate), CALLBACK_FUNCTION);
-            bool opened = (result == MMSYSERR_NOERROR);
-
-            MIDIINCAPS caps;
-            result = midiInGetDevCaps(i, &caps, sizeof(caps));
-            Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
-            Logger::RecordMisc(L"[%d] %s %s", i, caps.szPname, opened ? L"" : L"(unavailable)");
-
-            if (opened)
-            {
-                result = midiInStart(handle);
-                Debug::Assert(result == MMSYSERR_NOERROR, "Failed to start input from a MIDI device.");
-                inDeviceHandles.push_back(handle);
-            }
+			TryOpenInputDevice(i);
         }
-		
-		Logger::PrintSeparator();
 
-        // Open the all output devices.
-		Logger::RecordMisc("Output devices:");
         auto outDeviceCount = midiOutGetNumDevs();
         for (auto i = 0U; i < outDeviceCount; i++)
         {
-            HMIDIOUT handle;
-            auto result = midiOutOpen(&handle, i, NULL, NULL, CALLBACK_NULL);
-            bool opened = (result == MMSYSERR_NOERROR);
-
-            MIDIOUTCAPS caps;
-            result = midiOutGetDevCaps(i, &caps, sizeof(caps));
-            Debug::Assert(result == MMSYSERR_NOERROR, "Failed to retrieve the device caps.");
-			Logger::RecordMisc(L"[%d] %s %s", i, caps.szPname, opened ? L"" : L"(unavailable)");
-
-            if (opened) outDeviceHandles.push_back(handle);
+			TryOpenOutputDevice(i);
         }
-		
-		Logger::PrintSeparator();
     }
 
     // Close the all devices opened by this client.
@@ -108,7 +149,101 @@ private:
     std::vector<HMIDIIN> inDeviceHandles;
     std::vector<HMIDIOUT> outDeviceHandles;
 
-    // MIDI callback function.
+	// Check if the device is already opened.
+	bool CheckInputDeviceOpened(int id)
+	{
+		for (auto handle : inDeviceHandles)
+		{
+			UINT idFromHandle;
+			if (midiInGetID(handle, &idFromHandle) == MMSYSERR_NOERROR)
+			{
+				if (idFromHandle == id) return true;
+			}
+		}
+		return false;
+	}
+
+	bool CheckOutputDeviceOpened(int id)
+	{
+		for (auto handle : outDeviceHandles)
+		{
+			UINT idFromHandle;
+			if (midiOutGetID(handle, &idFromHandle) == MMSYSERR_NOERROR)
+			{
+				if (idFromHandle == id) return true;
+			}
+		}
+		return false;
+	}
+
+	// Try to open an device.
+	bool TryOpenInputDevice(UINT id)
+	{
+		HMIDIIN handle;
+		DWORD_PTR callback = reinterpret_cast<DWORD_PTR>(MidiInProc);
+		DWORD_PTR instance = reinterpret_cast<DWORD_PTR>(&messageDelegate);
+		if (midiInOpen(&handle, id, callback, instance, CALLBACK_FUNCTION) == MMSYSERR_NOERROR)
+		{
+			if (midiInStart(handle) == MMSYSERR_NOERROR)
+			{
+				inDeviceHandles.push_back(handle);
+				return true;
+			}
+			midiInClose(handle);
+		}
+		return false;
+	}
+
+	bool TryOpenOutputDevice(UINT id)
+	{
+		HMIDIOUT handle;
+		DWORD_PTR callback = reinterpret_cast<DWORD_PTR>(MidiInProc);
+		DWORD_PTR instance = reinterpret_cast<DWORD_PTR>(&messageDelegate);
+		if (midiOutOpen(&handle, id, callback, instance, CALLBACK_FUNCTION) == MMSYSERR_NOERROR)
+		{
+			outDeviceHandles.push_back(handle);
+			return true;
+		}
+		return false;
+	}
+
+	// Try to close the device.
+	void CloseInputDevice(int id)
+	{
+		for (auto handleItr = inDeviceHandles.begin(); handleItr != inDeviceHandles.end(); ++handleItr)
+		{
+			UINT idFromHandle;
+			if (midiInGetID(*handleItr, &idFromHandle) == MMSYSERR_NOERROR)
+			{
+				if (idFromHandle == id)
+				{
+					midiInStop(*handleItr);
+					midiInClose(*handleItr);
+					inDeviceHandles.erase(handleItr);
+					break;
+				}
+			}
+		}
+	}
+
+	void CloseOutputDevice(int id)
+	{
+		for (auto handleItr = outDeviceHandles.begin(); handleItr != outDeviceHandles.end(); ++handleItr)
+		{
+			UINT idFromHandle;
+			if (midiOutGetID(*handleItr, &idFromHandle) == MMSYSERR_NOERROR)
+			{
+				if (idFromHandle == id)
+				{
+					midiOutClose(*handleItr);
+					outDeviceHandles.erase(handleItr);
+					break;
+				}
+			}
+		}
+	}
+
+	// MIDI callback function.
     static void CALLBACK MidiInProc(HMIDIIN hMidiIn, UINT wMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
     {
         if (wMsg == MIM_DATA)

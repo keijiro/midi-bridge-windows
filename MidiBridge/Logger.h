@@ -9,11 +9,11 @@ class Logger
 {
 public:
 
+	// Enable/disable the logger.
 	static void Enable()
 	{
 		GetState().enabled = true;
 	}
-
 	static void Disable()
 	{
 		GetState().enabled = false;
@@ -23,48 +23,76 @@ public:
 	static void RecordMisc(const char* format, ...)
 	{
 		Logger& state = GetState();
-		if (!state.enabled) return;
-		if (state.rowCount >= 0) puts("-----+----------+----+-----------");
-		va_list args;
-		va_start(args, format);
-		vprintf(format, args);
-		va_end(args);
-		puts("");
-		state.rowCount = -1;
+		if (state.enabled)
+		{
+			if (state.rowCount >= 0) PrintSeparator(true);
+			va_list args;
+			va_start(args, format);
+			vprintf(format, args);
+			va_end(args);
+			puts("");
+			state.rowCount = -1;
+		}
 	}
-
 	static void RecordMisc(const wchar_t* format, ...)
 	{
 		Logger& state = GetState();
-		if (!state.enabled) return;
-		if (state.rowCount >= 0) puts("-----+----------+----+-----------");
-		va_list args;
-		va_start(args, format);
-		vwprintf(format, args);
-		va_end(args);
-		puts("");
-		state.rowCount = -1;
+		if (state.enabled)
+		{
+			if (state.rowCount >= 0) PrintSeparator(true);
+			va_list args;
+			va_start(args, format);
+			vwprintf(format, args);
+			va_end(args);
+			puts("");
+			state.rowCount = -1;
+		}
 	}
 
-	static void PrintSeparator()
-	{
-		puts("---------------------------------");
-	}
-
-	// MIDI input record.
-	static void RecordInput(MidiMessage& message)
+	// MIDI message record.
+	static void RecordMidiInput(MidiMessage& message)
 	{
 		if (!GetState().enabled) return;
 		PrintMidiHeaderWithInterval();
-		RecordMidiMessage(message, "IN");
+		PrintMidiMessage(message, "IN");
 	}
-
-	// MIDI output record.
-	static void RecordOutput(MidiMessage& message)
+	static void RecordMidiOutput(MidiMessage& message)
 	{
 		if (!GetState().enabled) return;
 		PrintMidiHeaderWithInterval();
-		RecordMidiMessage(message, "OUT");
+		PrintMidiMessage(message, "OUT");
+	}
+
+	// Print a separator.
+	static void PrintSeparator(bool column = false)
+	{
+		if (GetState().enabled)
+		{
+			if (column)
+			{
+				puts("-----+----------+----+-----------");
+			}
+			else
+			{
+				puts("---------------------------------");
+			}
+		}
+	}
+
+private:
+
+	bool enabled;
+	int rowCount;
+
+	Logger()
+	{
+		rowCount = -1;
+	}
+
+	static Logger& GetState()
+	{
+		static Logger state;
+		return state;
 	}
 
 	// Print a header for MIDI records.
@@ -74,7 +102,6 @@ public:
 		puts(" I/O | Event    | Ch | Data");
 		puts("-----+----------+----+-----------");
 	}
-
 	static void PrintMidiHeaderWithInterval()
 	{
 		Logger& state = GetState();
@@ -85,7 +112,7 @@ public:
 	}
 
 	// Print a MIDI message.
-	static void RecordMidiMessage(MidiMessage& message, const char* ioLabel)
+	static void PrintMidiMessage(MidiMessage& message, const char* ioLabel)
 	{
 		static const char *statusLabels[] =
 		{
@@ -115,21 +142,5 @@ public:
 				printf(" %3s | %s | %02d | %d, %d\n", ioLabel, statusLabel, channel, message.bytes[1], message.bytes[2]);
 			}
 		}
-	}
-
-private:
-
-	bool enabled;
-	int rowCount;
-
-	Logger()
-	{
-		rowCount = -1;
-	}
-
-	static Logger& GetState()
-	{
-		static Logger state;
-		return state;
 	}
 };

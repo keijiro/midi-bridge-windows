@@ -40,9 +40,7 @@ public:
     ~IpcServer()
     {
 		StopAndWait();
-        if (clientSocket != SOCKET_ERROR) closesocket(clientSocket);
-        if (listenSocket != SOCKET_ERROR) closesocket(listenSocket);
-    }
+	}
 
     // Sets up the listening socket.
     void SetUp()
@@ -93,6 +91,19 @@ public:
 	void StopAndWait()
 	{
 		stopReceiverThread = true;
+
+		if (clientSocket != SOCKET_ERROR)
+		{
+			closesocket(clientSocket);
+			clientSocket = SOCKET_ERROR;
+		}
+
+		if (listenSocket != SOCKET_ERROR)
+		{
+			closesocket(listenSocket);
+			listenSocket = SOCKET_ERROR;
+		}
+
 #ifdef WIN32
 		WaitForSingleObject(receiverThread, INFINITE);
 #else
@@ -121,6 +132,7 @@ private:
 
 			// Accept a new connection.
 			clientSocket = accept(listenSocket, NULL, NULL);
+			if (stopReceiverThread) break;
 			Debug::Assert(clientSocket != SOCKET_ERROR, "Failed on accepting the socket (%d)", errno);
 			
 			Logger::RecordMisc("Accepted a new connection.");
