@@ -30,6 +30,8 @@ public:
 
 	void TrySwitchState(int id)
 	{
+		std::lock_guard<std::mutex> gurad(handleMutex);
+
 		int inDeviceCount = midiInGetNumDevs();
 		int outDeviceCount = midiOutGetNumDevs();
 
@@ -70,6 +72,8 @@ public:
 	// Print the device list.
 	void PrintDeviceList()
 	{
+		std::lock_guard<std::mutex> gurad(handleMutex);
+
 		// Header.
 		puts("----+--------+--------------+----------------------------------");
 		puts(" ID |  TYPE  |    STATUS    | DEVICE NAME");
@@ -105,7 +109,9 @@ public:
     // Try to open the all devices.
     void OpenAllDevices()
     {
-        auto inDeviceCount = midiInGetNumDevs();
+		std::lock_guard<std::mutex> gurad(handleMutex);
+	
+		auto inDeviceCount = midiInGetNumDevs();
         for (auto i = 0U; i < inDeviceCount; i++)
         {
 			TryOpenInputDevice(i);
@@ -121,7 +127,9 @@ public:
     // Close the all devices opened by this client.
     void CloseAllDevices()
     {
-        for (auto& handle : inDeviceHandles)
+		std::lock_guard<std::mutex> gurad(handleMutex);
+	
+		for (auto& handle : inDeviceHandles)
         {
             midiInClose(handle);
         }
@@ -137,10 +145,15 @@ public:
     // Send a MIDI message to the all output devices.
     void SendMessageToDevices(MidiMessage message)
     {
-        for (auto& handle : outDeviceHandles)
-        {
-            midiOutShortMsg(handle, message.GetRaw32());
-        }
+		// Only send if the mutex isn't locked.
+		if (handleMutex.try_lock())
+		{
+			for (auto& handle : outDeviceHandles)
+			{
+				midiOutShortMsg(handle, message.GetRaw32());
+			}
+			handleMutex.unlock();
+		}
     }
 
 private:
@@ -148,6 +161,7 @@ private:
     MessageDelegate& messageDelegate;
     std::vector<HMIDIIN> inDeviceHandles;
     std::vector<HMIDIOUT> outDeviceHandles;
+	std::mutex handleMutex;
 
 	// Check if the device is already opened.
 	bool CheckInputDeviceOpened(int id)
