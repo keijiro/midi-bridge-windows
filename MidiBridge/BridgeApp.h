@@ -16,70 +16,87 @@ public:
     {
     }
 
-    // Application main loop.
-    void Run()
-    {
-#if 0
+    // Application main loop: automatic mode.
+	void RunAutomatic()
+	{
+		// Initialize the MIDI client.
 		midiClient.OpenAllDevices();
 		midiClient.PrintDeviceList();
 
 		Logger::Enable();
+		
+		// Start IPC.
 		ipcServer.SetUp();
 		ipcServer.Start();
 
 		while (true)
 		{
-			getchar();
+			GetLine();
+
+			// Rescan and grab the MIDI devices.
 			midiClient.CloseAllDevices();
 			midiClient.OpenAllDevices();
 		}
-#else
+	}
 
+	// Application main loop: interactive mode.
+	void RunInteractive()
+	{
+		// Initialize the MIDI client.
 		midiClient.OpenAllDevices();
 
+		// Start IPC.
 		ipcServer.SetUp();
 		ipcServer.Start();
 
 		while (true)
 		{
+			// Display the current status.
 			midiClient.PrintDeviceList();
 
-			puts("Enter an ID# or one of the following commands: (s)can, (r)eset, (l)og, (q)uit");
+			// Command line.
+			puts("Enter an ID or one of the following commands: (s)can, (r)eset, (l)og, (q)uit");
+			auto input = GetLine();
 
-			char input[1024];
-			fgets(input, sizeof(input), stdin);
-
-			if (input[0] == 's' || input[0] == '\n')
+			if (input[0] >= '0' && input[0] <= '9')
 			{
+				// ID number: switch the state of the device.
+				midiClient.TrySwitchState(atoi(input.c_str()));
 			}
 			else if (input[0] == 'r')
 			{
+				// Reset: rescan and grab the all MIDI devices.
 				midiClient.CloseAllDevices();
 				midiClient.OpenAllDevices();
 			}
 			else if (input[0] == 'l')
 			{
-				puts("Press ENTER key to stop the log viewer.");
+				// Log: enable the logger until the user interrupts.
+				puts("===================================");
+				puts("Press ENTER to quit the log viewer.");
+				puts("===================================");
 				Logger::Enable();
-				getchar();
+				GetLine();
 				Logger::Disable();
 			}
 			else if (input[0] == 'q')
 			{
+				// Quit: break the main loop.
 				break;
-			}
-			else if (input[0] >= '0' && input[0] <= '9')
-			{
-				midiClient.TrySwitchState(atoi(input));
 			}
 		}
 
+		// Cleaning up.
 		midiClient.CloseAllDevices();
 		ipcServer.StopAndWait();
-#endif
 	}
 
-    // IPC -> MIDI out
+private:
+
+	IpcServer ipcServer;
+	MidiClient midiClient;
+	
+	// IPC -> MIDI out
     int ProcessIncomingIpcMessageFromClient(const uint8_t* data, int offset, int length)
     {
         Debug::Assert(offset + 4 <= length, "Invalid IPC message.");
@@ -96,8 +113,11 @@ public:
         ipcServer.SendToClient(message);
     }
 
-private:
-
-    IpcServer ipcServer;
-    MidiClient midiClient;
+	// Utility: get a line from stdin.
+	static std::string GetLine()
+	{
+		char input[32];
+		fgets(input, sizeof(input), stdin);
+		return std::string(input);
+	}
 };
