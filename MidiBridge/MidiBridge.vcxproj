@@ -81,6 +81,7 @@
   <ItemGroup>
     <ClInclude Include="BridgeApp.h" />
     <ClInclude Include="Debug.h" />
+    <ClInclude Include="Logger.h" />
     <ClInclude Include="MidiClient.h" />
     <ClInclude Include="MidiMessage.h" />
     <ClInclude Include="Platform.h" />
