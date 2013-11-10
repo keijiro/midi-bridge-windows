@@ -16,7 +16,7 @@ public:
     {
     }
 
-    // Application main loop: automatic mode.
+    // Main loop: automatic mode.
 	void RunAutomatic()
 	{
 		// Initialize the MIDI client.
@@ -39,7 +39,7 @@ public:
 		}
 	}
 
-	// Application main loop: interactive mode.
+	// Main loop: interactive mode.
 	void RunInteractive()
 	{
 		// Initialize the MIDI client.
